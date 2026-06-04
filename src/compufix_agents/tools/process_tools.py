@@ -119,36 +119,76 @@ def kill_process(pid: int, dry_run: bool = True) -> dict:
         name = proc.name()
     except psutil.NoSuchProcess:
         logger.warning("kill_process(%s) -> no such process", pid)
-        return {"pid": pid, "name": None, "killed": False, "dry_run": dry_run,
-                "message": f"No process with pid {pid}."}
+        return {
+            "pid": pid,
+            "name": None,
+            "killed": False,
+            "dry_run": dry_run,
+            "message": f"No process with pid {pid}.",
+        }
     except psutil.AccessDenied:
-        return {"pid": pid, "name": None, "killed": False, "dry_run": dry_run,
-                "message": f"Access denied for pid {pid}."}
+        return {
+            "pid": pid,
+            "name": None,
+            "killed": False,
+            "dry_run": dry_run,
+            "message": f"Access denied for pid {pid}.",
+        }
 
     if _is_protected(name, pid):
         logger.warning("kill_process(%s, %s) blocked: protected process", pid, name)
-        return {"pid": pid, "name": name, "killed": False, "dry_run": dry_run,
-                "message": f"'{name}' (pid {pid}) is protected and cannot be killed."}
+        return {
+            "pid": pid,
+            "name": name,
+            "killed": False,
+            "dry_run": dry_run,
+            "message": f"'{name}' (pid {pid}) is protected and cannot be killed.",
+        }
 
     if dry_run:
         logger.info("kill_process(%s, %s) -> DRY RUN, not killed", pid, name)
-        return {"pid": pid, "name": name, "killed": False, "dry_run": True,
-                "message": f"[dry-run] Would terminate '{name}' (pid {pid})."}
+        return {
+            "pid": pid,
+            "name": name,
+            "killed": False,
+            "dry_run": True,
+            "message": f"[dry-run] Would terminate '{name}' (pid {pid}).",
+        }
 
     if not settings.allow_real_process_kill:
         logger.warning("kill_process(%s) blocked: ALLOW_REAL_PROCESS_KILL is false", pid)
-        return {"pid": pid, "name": name, "killed": False, "dry_run": False,
-                "message": "Real process kill is disabled (ALLOW_REAL_PROCESS_KILL=false)."}
+        return {
+            "pid": pid,
+            "name": name,
+            "killed": False,
+            "dry_run": False,
+            "message": "Real process kill is disabled (ALLOW_REAL_PROCESS_KILL=false).",
+        }
 
     try:
         proc.terminate()
         proc.wait(timeout=5)
         logger.info("kill_process(%s, %s) -> terminated", pid, name)
-        return {"pid": pid, "name": name, "killed": True, "dry_run": False,
-                "message": f"Terminated '{name}' (pid {pid})."}
+        return {
+            "pid": pid,
+            "name": name,
+            "killed": True,
+            "dry_run": False,
+            "message": f"Terminated '{name}' (pid {pid}).",
+        }
     except psutil.TimeoutExpired:
-        return {"pid": pid, "name": name, "killed": False, "dry_run": False,
-                "message": f"'{name}' (pid {pid}) did not terminate within timeout."}
+        return {
+            "pid": pid,
+            "name": name,
+            "killed": False,
+            "dry_run": False,
+            "message": f"'{name}' (pid {pid}) did not terminate within timeout.",
+        }
     except (psutil.NoSuchProcess, psutil.AccessDenied) as exc:
-        return {"pid": pid, "name": name, "killed": False, "dry_run": False,
-                "message": f"Failed to terminate pid {pid}: {exc}"}
+        return {
+            "pid": pid,
+            "name": name,
+            "killed": False,
+            "dry_run": False,
+            "message": f"Failed to terminate pid {pid}: {exc}",
+        }

@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 
-class StepStatus(str, Enum):
+class StepStatus(StrEnum):
     """Outcome of executing (or not executing) a single plan step."""
 
     SUCCESS = "success"
@@ -36,9 +36,5 @@ class ExecutionResult(BaseModel):
     @property
     def all_succeeded(self) -> bool:
         """True if every executed (non-skipped) step succeeded."""
-        executed = [
-            r
-            for r in self.results
-            if r.status in (StepStatus.SUCCESS, StepStatus.FAILED)
-        ]
+        executed = [r for r in self.results if r.status in (StepStatus.SUCCESS, StepStatus.FAILED)]
         return bool(executed) and all(r.status == StepStatus.SUCCESS for r in executed)

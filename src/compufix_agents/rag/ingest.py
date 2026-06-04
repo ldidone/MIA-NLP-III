@@ -37,23 +37,27 @@ def main() -> int:
         print("No knowledge base documents found. Nothing to ingest.")
         return 1
 
-    if not settings.llm_enabled:
+    print(f"  embedding backend: {settings.embedding_backend}")
+
+    if settings.embedding_backend == "none":
         print(
-            "\nNo OPENAI_API_KEY configured -> skipping vector store build.\n"
-            "The system will use the deterministic keyword-based retriever.\n"
-            "Set OPENAI_API_KEY (and install langchain-openai) to enable embeddings."
+            "\nEMBEDDING_BACKEND=none -> using the deterministic keyword retriever.\n"
+            "Set EMBEDDING_BACKEND=local (offline) or =openai to enable embeddings."
         )
         return 0
 
     store = build_vectorstore()
     if store is None:
         print(
-            "\nEmbeddings backend unavailable -> keyword fallback will be used.\n"
-            "Install 'langchain-openai' to enable the Chroma vector store."
+            "\nNo embeddings backend available -> keyword fallback will be used.\n"
+            "Options to enable semantic retrieval:\n"
+            '  * local : pip install -e ".[local]"  (offline sentence-transformers)\n'
+            "  * openai: set OPENAI_API_KEY and pip install langchain-openai"
         )
         return 0
 
     print(f"\nVector store built and persisted at: {settings.vectorstore_path}")
+    print("Semantic retrieval is now active.")
     return 0
 
 

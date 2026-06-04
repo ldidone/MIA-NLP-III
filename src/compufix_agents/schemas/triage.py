@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 
-class ProblemType(str, Enum):
+class ProblemType(StrEnum):
     """Categories the triage agent can classify a problem into."""
 
     PYTHON_MISSING_LIBRARY = "python_missing_library"

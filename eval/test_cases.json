@@ -1,0 +1,47 @@
+[
+  {
+    "input": "ModuleNotFoundError: No module named 'cv2'",
+    "expected_problem_type": "python_missing_library",
+    "expected_package": "opencv-python",
+    "expected_tool": "install_python_package",
+    "requires_approval": true
+  },
+  {
+    "input": "ModuleNotFoundError: No module named 'sklearn'",
+    "expected_problem_type": "python_missing_library",
+    "expected_package": "scikit-learn",
+    "expected_tool": "install_python_package",
+    "requires_approval": true
+  },
+  {
+    "input": "ImportError: No module named yaml",
+    "expected_problem_type": "python_missing_library",
+    "expected_package": "PyYAML",
+    "expected_tool": "install_python_package",
+    "requires_approval": true
+  },
+  {
+    "input": "Mi internet está muy lento",
+    "expected_problem_type": "network_slow",
+    "expected_tool": "list_available_networks",
+    "requires_approval": false
+  },
+  {
+    "input": "My wifi is really slow today",
+    "expected_problem_type": "network_slow",
+    "expected_tool": "get_current_network",
+    "requires_approval": false
+  },
+  {
+    "input": "La computadora está muy lenta y el ventilador hace ruido",
+    "expected_problem_type": "high_resource_usage",
+    "expected_tool": "list_top_processes",
+    "requires_approval": false
+  },
+  {
+    "input": "La computadora está lenta y consume mucha RAM",
+    "expected_problem_type": "high_resource_usage",
+    "expected_tool": "list_top_processes",
+    "requires_approval": false
+  }
+]

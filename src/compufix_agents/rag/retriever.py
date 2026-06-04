@@ -77,10 +77,10 @@ def _keyword_retrieve(query: str, k: int) -> list[dict]:
 
 def _vector_retrieve(query: str, k: int) -> list[dict] | None:
     """Retrieve via Chroma if available; return ``None`` to signal fallback."""
-    store = load_vectorstore()
-    if store is None:
-        return None
     try:
+        store = load_vectorstore()
+        if store is None:
+            return None
         docs_and_scores = store.similarity_search_with_relevance_scores(query, k=k)
     except Exception as exc:  # pragma: no cover - backend/runtime issues
         logger.warning("Vector retrieval failed (%s); falling back to keywords.", exc)

@@ -90,22 +90,94 @@ def chunk_documents(
     return chunks
 
 
-def _get_embeddings() -> Any | None:
-    """Return an embeddings object if possible, else ``None``.
-
-    Requires both ``langchain_openai`` to be installed and an API key to be
-    configured. Returns ``None`` otherwise so callers can fall back.
-    """
+def _openai_embeddings() -> Any | None:
+    """Return OpenAI embeddings if a key + ``langchain_openai`` are available."""
     settings = get_settings()
     if not settings.llm_enabled:
-        logger.info("No API key configured; embeddings unavailable.")
         return None
     try:
         from langchain_openai import OpenAIEmbeddings
     except ImportError:
-        logger.info("langchain_openai not installed; embeddings unavailable.")
+        logger.info("langchain_openai not installed; OpenAI embeddings unavailable.")
         return None
     return OpenAIEmbeddings(api_key=settings.openai_api_key)
+
+
+def _local_embeddings() -> Any | None:
+    """Return local (offline) sentence-transformers embeddings if installed.
+
+    Requires the ``sentence-transformers`` runtime plus a LangChain wrapper.
+    Prefers the maintained ``langchain_huggingface`` package and falls back to
+    the deprecated ``langchain_community`` location. Returns ``None`` (so the
+    caller uses the keyword fallback) when the local stack is not installed.
+    """
+    import importlib.util
+
+    # Short-circuit cleanly when the heavy runtime is absent. This avoids a
+    # failed construction attempt (and its deprecation warning) on the default
+    # install where the ``[local]`` extra is not present.
+    if importlib.util.find_spec("sentence_transformers") is None:
+        logger.info("Local embeddings unavailable; install extras: pip install -e '.[local]'")
+        return None
+
+    embeddings_cls = None
+    try:
+        from langchain_huggingface import HuggingFaceEmbeddings as embeddings_cls
+    except ImportError:
+        try:
+            from langchain_community.embeddings import HuggingFaceEmbeddings as embeddings_cls
+        except ImportError:
+            embeddings_cls = None
+    if embeddings_cls is None:
+        logger.info("No HuggingFace embeddings wrapper installed; using keyword fallback.")
+        return None
+
+    model_name = get_settings().local_embedding_model
+    try:
+        logger.info("Loading local embedding model: %s", model_name)
+        return embeddings_cls(model_name=model_name)
+    except Exception as exc:  # pragma: no cover - model load/download failure
+        logger.warning("Failed to load local embedding model %s: %s", model_name, exc)
+        return None
+
+
+def _get_embeddings() -> Any | None:
+    """Return an embeddings object based on the configured backend, else ``None``.
+
+    Backend selection (``EMBEDDING_BACKEND``):
+        * ``none``   -> always ``None`` (keyword fallback).
+        * ``openai`` -> OpenAI embeddings only.
+        * ``local``  -> local sentence-transformers embeddings only.
+        * ``auto``   -> OpenAI if available, otherwise local, otherwise ``None``.
+    """
+    backend = get_settings().embedding_backend
+
+    if backend == "none":
+        logger.info("EMBEDDING_BACKEND=none; using keyword fallback.")
+        return None
+    if backend == "openai":
+        return _openai_embeddings()
+    if backend == "local":
+        return _local_embeddings()
+
+    # auto: prefer OpenAI (if key), then local, then None.
+    return _openai_embeddings() or _local_embeddings()
+
+
+def _import_chroma() -> Any | None:
+    """Import the Chroma class from whichever package is available."""
+    try:
+        from langchain_chroma import Chroma
+
+        return Chroma
+    except ImportError:
+        try:
+            from langchain_community.vectorstores import Chroma
+
+            return Chroma
+        except ImportError:
+            logger.warning("Chroma vector store backend unavailable.")
+            return None
 
 
 def build_vectorstore(kb_path: Path | None = None) -> Any | None:
@@ -118,16 +190,14 @@ def build_vectorstore(kb_path: Path | None = None) -> Any | None:
     if embeddings is None:
         return None
 
+    Chroma = _import_chroma()
+    if Chroma is None:
+        return None
     try:
-        from langchain_chroma import Chroma
         from langchain_core.documents import Document
     except ImportError:
-        try:
-            from langchain_community.vectorstores import Chroma
-            from langchain_core.documents import Document
-        except ImportError:
-            logger.warning("Chroma vector store backend unavailable.")
-            return None
+        logger.warning("langchain_core not available; cannot build vector store.")
+        return None
 
     settings = get_settings()
     raw_docs = load_knowledge_base_documents(kb_path)
@@ -141,13 +211,22 @@ def build_vectorstore(kb_path: Path | None = None) -> Any | None:
     ]
     persist_dir = str(settings.vectorstore_path)
     logger.info("Building Chroma vector store at %s (%d chunks)", persist_dir, len(documents))
-    store = Chroma.from_documents(
+    try:
+        store = _chroma_from_documents(Chroma, documents, embeddings, persist_dir)
+    except Exception as exc:  # pragma: no cover - backend/runtime issues
+        logger.warning("Failed to build vector store (%s); keyword fallback will be used.", exc)
+        return None
+    return store
+
+
+def _chroma_from_documents(Chroma, documents, embeddings, persist_dir):  # noqa: ANN001
+    """Thin wrapper around ``Chroma.from_documents`` for easier error handling."""
+    return Chroma.from_documents(
         documents=documents,
         embedding=embeddings,
         persist_directory=persist_dir,
         collection_name="compufix_kb",
     )
-    return store
 
 
 def load_vectorstore() -> Any | None:
@@ -158,17 +237,15 @@ def load_vectorstore() -> Any | None:
 
     settings = get_settings()
     persist_dir = Path(settings.vectorstore_path)
-    if not persist_dir.exists() or not any(persist_dir.iterdir()):
+    # Chroma persists a 'chroma.sqlite3' file; a bare directory (or one holding
+    # only a .gitkeep) does not count as a built store.
+    if not (persist_dir / "chroma.sqlite3").exists():
         logger.info("No persisted vector store found at %s", persist_dir)
         return None
 
-    try:
-        from langchain_chroma import Chroma
-    except ImportError:
-        try:
-            from langchain_community.vectorstores import Chroma
-        except ImportError:
-            return None
+    Chroma = _import_chroma()
+    if Chroma is None:
+        return None
 
     return Chroma(
         persist_directory=str(persist_dir),

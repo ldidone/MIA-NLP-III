@@ -77,8 +77,7 @@ def _summarize(results: list[StepExecutionResult]) -> str:
     skipped = [
         r
         for r in results
-        if r.status
-        in (StepStatus.SKIPPED_NOT_APPROVED, StepStatus.SKIPPED_UNKNOWN_TOOL)
+        if r.status in (StepStatus.SKIPPED_NOT_APPROVED, StepStatus.SKIPPED_UNKNOWN_TOOL)
     ]
     failed = [r for r in results if r.status == StepStatus.FAILED]
     parts = [

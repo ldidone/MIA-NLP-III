@@ -28,7 +28,9 @@ logger = get_logger(__name__)
 # or "ModuleNotFoundError: ... 'x'".
 _MODULE_PATTERNS = [
     re.compile(r"no module named\s*['\"]?([\w.]+)['\"]?", re.IGNORECASE),
-    re.compile(r"modulenotfounderror[^\w]+(?:no module named\s*)?['\"]?([\w.]+)['\"]?", re.IGNORECASE),
+    re.compile(
+        r"modulenotfounderror[^\w]+(?:no module named\s*)?['\"]?([\w.]+)['\"]?", re.IGNORECASE
+    ),
     re.compile(r"importerror[^\w]+(?:no module named\s*)?['\"]?([\w.]+)['\"]?", re.IGNORECASE),
     re.compile(r"cannot import name .* from ['\"]?([\w.]+)['\"]?", re.IGNORECASE),
 ]

@@ -44,12 +44,18 @@ evaluation under `eval/`.
 
 ## Quickstart
 
+> **Python version:** use **3.11 or 3.12**. The pinned LangChain 0.3 stack
+> requires `numpy < 2.0`, which has no wheels for Python 3.13.
+
 ```bash
-# 1. Create and activate a virtual environment (Python 3.11+)
-python -m venv .venv && source .venv/bin/activate
+# 1. Create and activate a virtual environment (Python 3.11 or 3.12)
+python3.12 -m venv .venv && source .venv/bin/activate
 
 # 2. Install dependencies
 pip install -r requirements.txt
+
+# Optional: offline semantic retrieval (local embeddings, no API key)
+pip install -e ".[local]"
 
 # 3. Copy environment template and edit as needed
 cp .env.example .env
@@ -69,6 +75,77 @@ streamlit run app/streamlit_app.py
 | `LLM_PROVIDER`            | `openai`           | LLM provider identifier.                             |
 | `VECTORSTORE_PATH`        | `data/vectorstore` | Where the vector store is persisted.                 |
 | `ALLOW_REAL_PROCESS_KILL` | `false`            | If `true`, real process kills are *possible* (still require approval). |
+| `EMBEDDING_BACKEND`       | `auto`             | `auto` / `openai` / `local` / `none`. Selects embeddings for semantic retrieval; `none` forces the keyword fallback. |
+| `LOCAL_EMBEDDING_MODEL`   | `sentence-transformers/all-MiniLM-L6-v2` | Model used when `EMBEDDING_BACKEND` resolves to `local`. |
+
+## Ingesting the knowledge base
+
+```bash
+python -m compufix_agents.rag.ingest
+```
+
+- With an `OPENAI_API_KEY` (and `langchain-openai` installed), this builds and
+  persists a **Chroma** vector store under `VECTORSTORE_PATH`.
+- Without a key, ingestion reports the document/chunk counts and the system uses
+  the **deterministic keyword retriever** — no action required.
+
+## Running the app
+
+```bash
+streamlit run app/streamlit_app.py
+```
+
+The UI lets you analyze a problem, review the diagnosis and proposed plan,
+approve sensitive steps individually, then execute and view results. Example
+inputs are available in the sidebar.
+
+## Running tests
+
+```bash
+pytest
+```
+
+Tests cover the import→package mapping, triage classification, mocked network
+tools, real process listing + safe killing, planner safety rules, executor
+allowlist/approval enforcement, and the end-to-end workflow.
+
+## Running the evaluation
+
+```bash
+python eval/run_eval.py            # pretty table
+python eval/run_eval.py --json     # machine-readable report
+```
+
+Reports triage accuracy, expected-tool coverage, approval-decision accuracy, and
+package-mapping accuracy over `eval/test_cases.json`. Exits non-zero if triage
+accuracy drops below 80%.
+
+## Documentation
+
+- [`docs/architecture.md`](docs/architecture.md) — agents, workflow, tools, schemas.
+- [`docs/safety_policy.md`](docs/safety_policy.md) — approvals, blocked actions, rationale.
+- [`docs/demo_script.md`](docs/demo_script.md) — step-by-step demo of the three use cases.
+
+## Limitations
+
+- Network tools are **fully simulated**; no real OS network settings are read or
+  changed.
+- Real process killing is disabled by default (`ALLOW_REAL_PROCESS_KILL=false`)
+  and always requires approval even when enabled.
+- The default (no-API-key) triage and diagnosis are rule/template based; they
+  cover the three target use cases but are not general-purpose.
+- The keyword retriever is a lexical fallback, not semantic search; quality
+  improves with the Chroma + embeddings path.
+- Package installation runs against the **active interpreter**; results depend on
+  network access and PyPI availability.
+
+## Future work
+
+- Real (opt-in, sandboxed) network inspection and switching per OS.
+- Semantic retrieval by default (local embeddings) and richer knowledge base.
+- LLM-assisted planning constrained to the tool allowlist.
+- More problem categories (disk space, driver issues, DNS, etc.).
+- Persisted audit log and a proper approval queue in the LangGraph checkpointer.
 
 ## Development
 
@@ -77,8 +154,5 @@ pytest            # run tests
 ruff check .      # lint
 ```
 
-## Status
-
-🚧 MVP in progress. See the task breakdown in the project brief.
 The system is designed to run **fully locally and deterministically** when no
 LLM API key is configured.

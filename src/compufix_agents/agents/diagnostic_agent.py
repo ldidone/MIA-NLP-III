@@ -88,9 +88,7 @@ def _evidence_from_docs(docs: list[dict], max_items: int = 3) -> list[str]:
     return evidence
 
 
-def _deterministic_diagnosis(
-    triage: TriageResult, docs: list[dict]
-) -> DiagnosisResult:
+def _deterministic_diagnosis(triage: TriageResult, docs: list[dict]) -> DiagnosisResult:
     """Build a diagnosis deterministically from problem type + retrieved docs."""
     template = _DETERMINISTIC_DIAGNOSIS.get(
         triage.problem_type, _DETERMINISTIC_DIAGNOSIS[ProblemType.UNKNOWN]
@@ -140,9 +138,7 @@ def _llm_diagnosis(
         return None
 
 
-def diagnose(
-    user_input: str, triage: TriageResult, k: int = 4
-) -> DiagnosisResult:
+def diagnose(user_input: str, triage: TriageResult, k: int = 4) -> DiagnosisResult:
     """Diagnose a problem using retrieved documentation.
 
     Args:
@@ -154,9 +150,7 @@ def diagnose(
         A :class:`DiagnosisResult` grounded in retrieved docs.
     """
     docs = retrieve_relevant_docs(user_input, k=k) if triage.requires_retrieval else []
-    logger.info(
-        "Diagnose(%s) -> %d docs retrieved", triage.problem_type.value, len(docs)
-    )
+    logger.info("Diagnose(%s) -> %d docs retrieved", triage.problem_type.value, len(docs))
 
     llm_result = _llm_diagnosis(user_input, triage, docs)
     if llm_result is not None:

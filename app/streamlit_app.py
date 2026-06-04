@@ -104,10 +104,7 @@ def _render_plan_and_approvals(plan) -> dict[int, bool]:
         risk_color = {"low": "green", "medium": "orange", "high": "red"}.get(
             step.risk.value, "gray"
         )
-        st.markdown(
-            f"**Step {step.step}: `{step.tool}`** — "
-            f":{risk_color}[risk: {step.risk.value}]"
-        )
+        st.markdown(f"**Step {step.step}: `{step.tool}`** — :{risk_color}[risk: {step.risk.value}]")
         if step.args:
             st.caption(f"args: {step.args}")
         if step.rationale:

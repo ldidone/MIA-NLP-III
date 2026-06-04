@@ -43,9 +43,7 @@ def _plan_python_missing_library(triage: TriageResult) -> list[PlanStep]:
     """Plan: check -> install (approval) -> verify import."""
     entities = triage.extracted_entities
     module = entities.get("missing_module")
-    package = entities.get("package_name") or (
-        map_import_to_package(module) if module else None
-    )
+    package = entities.get("package_name") or (map_import_to_package(module) if module else None)
     if not package:
         return []
 

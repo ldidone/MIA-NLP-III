@@ -1,0 +1,22 @@
+# Core multi-agent / LLM stack
+langgraph>=0.2.0
+langchain>=0.3.0
+langchain-community>=0.3.0
+langchain-openai>=0.2.0
+
+# Vector store + embeddings
+chromadb>=0.5.0
+
+# UI
+streamlit>=1.36.0
+
+# System inspection
+psutil>=6.0.0
+
+# Data models / config
+pydantic>=2.7.0
+python-dotenv>=1.0.0
+
+# Dev / quality / testing
+pytest>=8.0.0
+ruff>=0.5.0

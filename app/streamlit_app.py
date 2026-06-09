@@ -22,10 +22,13 @@ if str(_SRC) not in sys.path:
 import streamlit as st  # noqa: E402
 
 from compufix_agents.config import get_settings  # noqa: E402
+from compufix_agents.graph.state import AgentState  # noqa: E402
 from compufix_agents.graph.workflow import (  # noqa: E402
     apply_approvals,
+    handle_clarification,
     run_analysis,
     run_execution,
+    run_followup,
 )
 from compufix_agents.schemas.execution import StepStatus  # noqa: E402
 
@@ -45,9 +48,14 @@ _STATUS_ICON = {
 
 
 def _init_state() -> None:
-    st.session_state.setdefault("analysis", None)
-    st.session_state.setdefault("executed", None)
+    st.session_state.setdefault("agent_state", None)
     st.session_state.setdefault("input_text", "")
+    st.session_state.setdefault("conversation_history", [])
+    st.session_state.setdefault("clarification_mode", False)
+    st.session_state.setdefault("show_clarification_input", False)
+    st.session_state.setdefault("analysis_done", False)
+    st.session_state.setdefault("executed", None)
+    st.session_state.setdefault("followup_mode", False)
 
 
 def _sidebar() -> None:
@@ -61,12 +69,26 @@ def _sidebar() -> None:
         f"Real process kill: **{'enabled' if settings.allow_real_process_kill else 'disabled'}**"
     )
 
+    if st.session_state.conversation_history:
+        st.sidebar.subheader("Conversation history")
+        for turn in st.session_state.conversation_history:
+            role = "🧑" if turn.role == "user" else "🤖"
+            st.sidebar.caption(f"{role} {turn.content[:120]}...")
+
+    if st.sidebar.button("🔄 Nueva conversación"):
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.rerun()
+
     st.sidebar.subheader("Example problems")
     for ex in EXAMPLE_INPUTS:
         if st.sidebar.button(ex, key=f"ex_{ex}", use_container_width=True):
             st.session_state.input_text = ex
-            st.session_state.analysis = None
-            st.session_state.executed = None
+            for key in list(st.session_state.keys()):
+                if key not in ("input_text",):
+                    del st.session_state[key]
+            _init_state()
+            st.session_state.input_text = ex
 
 
 def _render_triage(triage) -> None:
@@ -81,6 +103,8 @@ def _render_triage(triage) -> None:
 
 def _render_diagnosis(diagnosis) -> None:
     st.subheader("2. Diagnosis")
+    if diagnosis.is_rediagnosis:
+        st.warning("🔄 Re-diagnóstico tras error de ejecución")
     st.write(diagnosis.diagnosis)
     if diagnosis.recommended_next_step:
         st.success(f"**Recommended next step:** {diagnosis.recommended_next_step}")
@@ -95,6 +119,10 @@ def _render_diagnosis(diagnosis) -> None:
 
 def _render_plan_and_approvals(plan) -> dict[int, bool]:
     st.subheader("3. Proposed action plan")
+    if state := st.session_state.agent_state:
+        if state.retry_count > 0:
+            st.info(f"🔄 Intento de re-diagnóstico #{state.retry_count}/{state.max_retries}")
+
     approvals: dict[int, bool] = {}
     if not plan.plan:
         st.warning("No actionable plan was produced for this problem.")
@@ -131,8 +159,71 @@ def _render_execution(execution) -> None:
                 st.json(r.output)
         if r.message:
             st.caption(r.message)
+
+    state = st.session_state.agent_state
+    if state and state.solution_saved:
+        st.success("📚 Solución guardada automáticamente en la base de conocimiento.")
+
     st.subheader("6. Final answer")
     st.success(execution.final_response)
+
+
+def _render_clarification() -> None:
+    st.subheader("💬 Necesito más información")
+    state = st.session_state.agent_state
+    st.info(state.clarification_question)
+
+    clarification_input = st.text_area(
+        "Tu respuesta",
+        key="clarification_input",
+        height=100,
+        placeholder="Describe con más detalle qué está ocurriendo...",
+    )
+
+    col1, col2 = st.columns([1, 5])
+    with col1:
+        if st.button("📤 Enviar", key="send_clarification", type="primary"):
+            if clarification_input.strip():
+                _process_clarification(clarification_input)
+                st.rerun()
+            else:
+                st.warning("Por favor escribe una respuesta.")
+
+    with col2:
+        if st.button("⏭️ Omitir", key="skip_clarification"):
+            _process_clarification("No tengo más información para agregar.")
+            st.rerun()
+
+    st.caption(f"Intento {state.clarification_count + 1} de 2")
+
+
+def _process_clarification(response: str) -> None:
+    state = st.session_state.agent_state
+    state = handle_clarification(response, state)
+    st.session_state.agent_state = state
+    st.session_state.conversation_history = state.conversation_history
+
+    if state.needs_clarification:
+        st.session_state.clarification_mode = True
+        st.session_state.show_clarification_input = True
+    else:
+        st.session_state.clarification_mode = False
+        st.session_state.show_clarification_input = False
+        st.session_state.analysis_done = True
+
+
+def _run_analysis_flow() -> None:
+    state = AgentState(user_input=st.session_state.input_text)
+    state = run_analysis(st.session_state.input_text, state)
+    st.session_state.agent_state = state
+    st.session_state.conversation_history = state.conversation_history
+
+    if state.needs_clarification:
+        st.session_state.clarification_mode = True
+        st.session_state.show_clarification_input = True
+    else:
+        st.session_state.clarification_mode = False
+        st.session_state.analysis_done = True
 
 
 def main() -> None:
@@ -156,40 +247,109 @@ def main() -> None:
     if st.button("🔍 Analyze problem", type="primary"):
         if user_input.strip():
             st.session_state.input_text = user_input
-            with st.spinner("Running triage, diagnosis, and planning..."):
-                st.session_state.analysis = run_analysis(user_input)
-            st.session_state.executed = None
+            _run_analysis_flow()
+            st.rerun()
         else:
             st.warning("Please describe a problem first.")
 
-    analysis = st.session_state.analysis
-    if analysis is not None:
-        if analysis.errors:
-            st.error("\n".join(analysis.errors))
+    state = st.session_state.agent_state
 
-        if analysis.triage:
-            _render_triage(analysis.triage)
-        if analysis.diagnosis:
-            _render_diagnosis(analysis.diagnosis)
+    if state and st.session_state.show_clarification_input:
+        _render_clarification()
+        return
 
-        if analysis.plan:
-            approvals = _render_plan_and_approvals(analysis.plan)
+    if state and st.session_state.analysis_done:
+        if state.errors:
+            st.error("\n".join(state.errors))
+
+        if state.triage:
+            _render_triage(state.triage)
+        if state.diagnosis:
+            _render_diagnosis(state.diagnosis)
+
+        if state.plan:
+            approvals = _render_plan_and_approvals(state.plan)
 
             st.subheader("4. Execute")
-            needs_approval = analysis.plan.requires_any_approval()
+            needs_approval = state.plan.requires_any_approval()
             if needs_approval:
                 st.info(
                     "Sensitive steps require your approval (checkboxes above). "
                     "Unapproved sensitive steps will be skipped."
                 )
-            if st.button("▶️ Execute approved actions"):
-                apply_approvals(analysis.plan, approvals)
-                with st.spinner("Executing plan..."):
-                    st.session_state.executed = run_execution(analysis)
+
+            col1, col2 = st.columns([1, 5])
+            with col1:
+                if st.button("▶️ Execute approved actions", type="primary"):
+                    apply_approvals(state.plan, approvals)
+                    with st.spinner("Executing plan..."):
+                        state = run_execution(state)
+                        st.session_state.agent_state = state
+                        st.session_state.executed = state.execution
+
+                        # Check for re-diagnosis
+                        if state.plan is None and state.execution_error:
+                            st.info(
+                                f"🔄 Re-diagnosticando tras error "
+                                f"(intento {state.retry_count}/{state.max_retries})..."
+                            )
+                            state = run_analysis(state.user_input, state)
+                            st.session_state.agent_state = state
+                            st.session_state.analysis_done = True
+                            st.rerun()
+
+                    st.rerun()
+
+            with col2:
+                if state.retry_count > 0:
+                    st.caption(f"Re-diagnóstico #{state.retry_count}")
 
     executed = st.session_state.executed
-    if executed is not None and executed.execution is not None:
-        _render_execution(executed.execution)
+    if executed is not None:
+        _render_execution(executed)
+
+        st.markdown("---")
+        st.subheader("💬 Seguimiento")
+        st.caption(
+            "Si el problema se resolvió parcialmente o tienes un nuevo síntoma, "
+            "escríbelo aquí para continuar la conversación."
+        )
+
+        follow_up = st.text_area(
+            "Tu seguimiento",
+            key="followup_input",
+            height=80,
+            placeholder="Ej: ya instalé la librería pero ahora me da este error...",
+        )
+
+        col_fu1, col_fu2, col_fu3 = st.columns([1, 1, 4])
+        with col_fu1:
+            if st.button("📤 Enviar seguimiento", key="send_followup", type="primary"):
+                if follow_up.strip():
+                    state = st.session_state.agent_state
+                    state = run_followup(follow_up, state)
+                    st.session_state.agent_state = state
+                    st.session_state.conversation_history = state.conversation_history
+                    st.session_state.executed = None
+
+                    if state.needs_clarification:
+                        st.session_state.show_clarification_input = True
+                        st.session_state.clarification_mode = True
+                        st.session_state.analysis_done = False
+                    else:
+                        st.session_state.show_clarification_input = False
+                        st.session_state.clarification_mode = False
+                        st.session_state.analysis_done = True
+                    st.session_state.followup_mode = True
+                    st.rerun()
+                else:
+                    st.warning("Escribe un mensaje de seguimiento.")
+
+        with col_fu2:
+            if st.button("🔄 Nuevo problema"):
+                for key in list(st.session_state.keys()):
+                    del st.session_state[key]
+                st.rerun()
 
 
 if __name__ == "__main__":

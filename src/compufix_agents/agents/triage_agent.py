@@ -82,6 +82,8 @@ _RESOURCE_KEYWORDS = (
 
 _SLOW_HINTS = ("lento", "lenta", "slow", "despacio")
 
+_CLARIFICATION_THRESHOLD = 0.5
+
 
 def _extract_module(text: str) -> str | None:
     """Return the missing module's top-level import name, if present."""
@@ -98,11 +100,38 @@ def _count_hits(text: str, keywords: tuple[str, ...]) -> int:
     return sum(1 for kw in keywords if kw in text)
 
 
-def rule_based_triage(user_input: str) -> TriageResult:
+def _build_clarification_question(triage: TriageResult, text: str) -> str:
+    """Generate a clarification question when confidence is low."""
+    if triage.problem_type == ProblemType.UNKNOWN:
+        return (
+            "No pude identificar el problema con claridad. "
+            "¿Podrías darme más detalles? Por ejemplo, ¿qué mensaje de error "
+            "ves exactamente, o qué estabas haciendo cuando ocurrió?"
+        )
+    if triage.problem_type == ProblemType.PYTHON_MISSING_LIBRARY:
+        return (
+            "Parece que falta una librería de Python, pero no estoy seguro. "
+            "¿Podrías copiar el mensaje de error completo?"
+        )
+    if triage.problem_type == ProblemType.NETWORK_SLOW:
+        return (
+            "Parece que tienes un problema de red, pero tengo poca información. "
+            "¿Podrías describir qué pruebas de conexión has hecho?"
+        )
+    if triage.problem_type == ProblemType.HIGH_RESOURCE_USAGE:
+        return (
+            "Parece que tu computadora está lenta, pero necesito más detalles. "
+            "¿Qué programas tienes abiertos y desde cuándo empezó el problema?"
+        )
+    return "¿Podrías proporcionar más detalles sobre el problema?"
+
+
+def rule_based_triage(user_input: str, conversation_context: str = "") -> TriageResult:
     """Classify a problem using deterministic rules.
 
     Args:
         user_input: The raw problem description.
+        conversation_context: Optional conversation history context.
 
     Returns:
         A :class:`TriageResult`.
@@ -110,9 +139,12 @@ def rule_based_triage(user_input: str) -> TriageResult:
     text = user_input.lower()
     entities: dict[str, Any] = {}
 
+    enriched = f"{conversation_context}\n{user_input}".strip()
+    enriched_lower = enriched.lower()
+
     # 1. Python missing library (most specific / highest priority).
-    module = _extract_module(user_input)
-    has_python_trigger = any(trig in text for trig in _PYTHON_TRIGGERS)
+    module = _extract_module(enriched)
+    has_python_trigger = any(trig in enriched_lower for trig in _PYTHON_TRIGGERS)
     if module or has_python_trigger:
         if module:
             entities["missing_module"] = module
@@ -126,9 +158,9 @@ def rule_based_triage(user_input: str) -> TriageResult:
         )
 
     # 2. Network vs. high resource usage (keyword scoring).
-    network_hits = _count_hits(text, _NETWORK_KEYWORDS)
-    resource_hits = _count_hits(text, _RESOURCE_KEYWORDS)
-    has_slow = any(h in text for h in _SLOW_HINTS)
+    network_hits = _count_hits(enriched_lower, _NETWORK_KEYWORDS)
+    resource_hits = _count_hits(enriched_lower, _RESOURCE_KEYWORDS)
+    has_slow = any(h in enriched_lower for h in _SLOW_HINTS)
 
     if network_hits or resource_hits:
         if network_hits > resource_hits:
@@ -160,7 +192,7 @@ def rule_based_triage(user_input: str) -> TriageResult:
             requires_system_tools=True,
         )
 
-    return TriageResult(
+    result = TriageResult(
         problem_type=ProblemType.UNKNOWN,
         confidence=0.3,
         extracted_entities=entities,
@@ -168,8 +200,15 @@ def rule_based_triage(user_input: str) -> TriageResult:
         requires_system_tools=False,
     )
 
+    # If confidence is low, mark for clarification.
+    if result.confidence < _CLARIFICATION_THRESHOLD:
+        result.needs_clarification = True
+        result.clarification_question = _build_clarification_question(result, text)
 
-def _llm_triage(user_input: str) -> TriageResult | None:
+    return result
+
+
+def _llm_triage(user_input: str, conversation_context: str = "") -> TriageResult | None:
     """Attempt LLM-based classification; return ``None`` on any failure."""
     settings = get_settings()
     if not settings.llm_enabled:
@@ -184,7 +223,7 @@ def _llm_triage(user_input: str) -> TriageResult | None:
 
     try:
         llm = ChatOpenAI(api_key=settings.openai_api_key, model="gpt-4o-mini", temperature=0)
-        messages = build_triage_messages(user_input)
+        messages = build_triage_messages(user_input, conversation_context)
         response = llm.invoke(messages)
         raw = response.content if isinstance(response.content, str) else str(response.content)
         # Strip accidental code fences.
@@ -192,19 +231,28 @@ def _llm_triage(user_input: str) -> TriageResult | None:
         data = json.loads(raw)
         result = TriageResult(**data)
         logger.info("LLM triage -> %s (%.2f)", result.problem_type, result.confidence)
+        # Mark for clarification if confidence is too low.
+        if result.confidence < _CLARIFICATION_THRESHOLD and result.problem_type != ProblemType.UNKNOWN:
+            result.needs_clarification = True
+            result.clarification_question = _build_clarification_question(result, user_input)
         return result
     except Exception as exc:  # pragma: no cover - network/parse failures
         logger.warning("LLM triage failed (%s); falling back to rules.", exc)
         return None
 
 
-def triage(user_input: str, use_llm: bool | None = None) -> TriageResult:
+def triage(
+    user_input: str,
+    use_llm: bool | None = None,
+    conversation_context: str = "",
+) -> TriageResult:
     """Classify a user problem, preferring the LLM when available.
 
     Args:
         user_input: The raw problem description.
         use_llm: Force-enable/disable the LLM path. When ``None`` (default),
             the LLM is used only if an API key is configured.
+        conversation_context: Optional conversation history context.
 
     Returns:
         A :class:`TriageResult` (rule-based fallback is always guaranteed).
@@ -215,8 +263,8 @@ def triage(user_input: str, use_llm: bool | None = None) -> TriageResult:
     settings = get_settings()
     want_llm = settings.llm_enabled if use_llm is None else use_llm
     if want_llm:
-        llm_result = _llm_triage(user_input)
+        llm_result = _llm_triage(user_input, conversation_context)
         if llm_result is not None:
             return llm_result
 
-    return rule_based_triage(user_input)
+    return rule_based_triage(user_input, conversation_context)

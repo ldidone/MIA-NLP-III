@@ -11,6 +11,8 @@ Guarantees:
 
 from __future__ import annotations
 
+import traceback
+
 from compufix_agents.logging_config import get_logger
 from compufix_agents.schemas.execution import (
     ExecutionResult,
@@ -53,22 +55,44 @@ def _execute_step(step: PlanStep) -> StepExecutionResult:
     func = TOOL_REGISTRY[step.tool]
     try:
         output = func(**step.args)
-        logger.info("Executed %s -> ok", step.tool)
-        return StepExecutionResult(
-            step=step.step,
-            tool=step.tool,
-            status=StepStatus.SUCCESS,
-            output=output if isinstance(output, dict) else {"result": output},
-            message=f"Executed '{step.tool}'.",
-        )
     except Exception as exc:  # pragma: no cover - tool-level failures
         logger.exception("Tool %s raised an error", step.tool)
         return StepExecutionResult(
             step=step.step,
             tool=step.tool,
             status=StepStatus.FAILED,
+            output={
+                "error": str(exc),
+                "traceback": traceback.format_exc(),
+            },
             message=f"Tool '{step.tool}' failed: {exc}",
         )
+
+    # Normalise output to a dict.
+    result = output if isinstance(output, dict) else {"result": output}
+
+    # 4. Business-logic check: treat explicit ``success=False`` as a failure so
+    #    the re-diagnosis loop is triggered (tools like install_python_package
+    #    return {"success": False} instead of raising).
+    if isinstance(result, dict) and result.get("success") is False:
+        error_detail = result.get("stderr", result.get("error", "tool returned success=False"))
+        logger.info("Tool %s reported failure: %s", step.tool, error_detail[:200])
+        return StepExecutionResult(
+            step=step.step,
+            tool=step.tool,
+            status=StepStatus.FAILED,
+            output=result,
+            message=f"Tool '{step.tool}' failed: {error_detail[:500]}",
+        )
+
+    logger.info("Executed %s -> ok", step.tool)
+    return StepExecutionResult(
+        step=step.step,
+        tool=step.tool,
+        status=StepStatus.SUCCESS,
+        output=result,
+        message=f"Executed '{step.tool}'.",
+    )
 
 
 def _summarize(results: list[StepExecutionResult]) -> str:

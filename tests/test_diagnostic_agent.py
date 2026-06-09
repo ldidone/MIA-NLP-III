@@ -15,7 +15,7 @@ def test_diagnose_python_missing_library_is_grounded():
     assert result.recommended_next_step
     # Diagnosis is grounded in retrieved docs.
     assert result.retrieved_docs
-    assert any("python/" in d.source for d in result.retrieved_docs)
+    assert any("python" in d.source.replace("\\", "/") for d in result.retrieved_docs)
 
 
 def test_diagnose_network_slow():

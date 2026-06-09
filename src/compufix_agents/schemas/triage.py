@@ -27,6 +27,8 @@ class TriageResult(BaseModel):
             ``{"missing_module": "cv2", "package_name": "opencv-python"}``.
         requires_retrieval: Whether the diagnostic (RAG) agent should run.
         requires_system_tools: Whether system tools are likely needed.
+        needs_clarification: When True, the triage agent needs more details.
+        clarification_question: Question to ask the user for more info.
     """
 
     problem_type: ProblemType = ProblemType.UNKNOWN
@@ -34,3 +36,5 @@ class TriageResult(BaseModel):
     extracted_entities: dict[str, Any] = Field(default_factory=dict)
     requires_retrieval: bool = True
     requires_system_tools: bool = True
+    needs_clarification: bool = False
+    clarification_question: str = ""

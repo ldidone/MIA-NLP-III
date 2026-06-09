@@ -32,6 +32,16 @@ Respond with ONLY a JSON object of this exact shape (no prose, no code fences):
 """
 
 TRIAGE_USER_TEMPLATE = """\
+{context_prefix}User problem:
+\"\"\"{user_input}\"\"\"
+
+Return the JSON object now.
+"""
+
+TRIAGE_CLARIFICATION_TEMPLATE = """\
+Previous conversation:
+{conversation_context}
+
 User problem:
 \"\"\"{user_input}\"\"\"
 
@@ -39,9 +49,22 @@ Return the JSON object now.
 """
 
 
-def build_triage_messages(user_input: str) -> list[dict[str, str]]:
+def build_triage_messages(
+    user_input: str,
+    conversation_context: str = "",
+) -> list[dict[str, str]]:
     """Build the chat messages for the triage LLM call."""
+    if conversation_context:
+        content = TRIAGE_CLARIFICATION_TEMPLATE.format(
+            conversation_context=conversation_context,
+            user_input=user_input,
+        )
+    else:
+        content = TRIAGE_USER_TEMPLATE.format(
+            context_prefix="",
+            user_input=user_input,
+        )
     return [
         {"role": "system", "content": TRIAGE_SYSTEM_PROMPT},
-        {"role": "user", "content": TRIAGE_USER_TEMPLATE.format(user_input=user_input)},
+        {"role": "user", "content": content},
     ]

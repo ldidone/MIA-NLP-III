@@ -88,16 +88,33 @@ def _evidence_from_docs(docs: list[dict], max_items: int = 3) -> list[str]:
     return evidence
 
 
-def _deterministic_diagnosis(triage: TriageResult, docs: list[dict]) -> DiagnosisResult:
+def _deterministic_diagnosis(
+    triage: TriageResult,
+    docs: list[dict],
+    execution_error: str = "",
+) -> DiagnosisResult:
     """Build a diagnosis deterministically from problem type + retrieved docs."""
-    template = _DETERMINISTIC_DIAGNOSIS.get(
+    is_rediagnosis = bool(execution_error)
+    diagnosis_text = _DETERMINISTIC_DIAGNOSIS.get(
         triage.problem_type, _DETERMINISTIC_DIAGNOSIS[ProblemType.UNKNOWN]
-    )
+    )["diagnosis"]
+
+    if is_rediagnosis:
+        diagnosis_text = (
+            f"[Re-diagnóstico tras error de ejecución]\n\n"
+            f"{diagnosis_text}\n\n"
+            f"El paso anterior falló con: {execution_error}\n"
+            "Revisando información adicional para encontrar una solución alternativa."
+        )
+
     return DiagnosisResult(
-        diagnosis=template["diagnosis"],
+        diagnosis=diagnosis_text,
         evidence=_evidence_from_docs(docs),
-        recommended_next_step=template["next_step"],
+        recommended_next_step=_DETERMINISTIC_DIAGNOSIS.get(
+            triage.problem_type, _DETERMINISTIC_DIAGNOSIS[ProblemType.UNKNOWN]
+        )["next_step"],
         retrieved_docs=[RetrievedDoc(**d) for d in docs],
+        is_rediagnosis=is_rediagnosis,
     )
 
 
@@ -138,21 +155,33 @@ def _llm_diagnosis(
         return None
 
 
-def diagnose(user_input: str, triage: TriageResult, k: int = 4) -> DiagnosisResult:
+def diagnose(
+    user_input: str,
+    triage: TriageResult,
+    k: int = 4,
+    execution_error: str = "",
+) -> DiagnosisResult:
     """Diagnose a problem using retrieved documentation.
 
     Args:
         user_input: The raw problem description.
         triage: The triage result for this problem.
         k: Number of documents to retrieve.
+        execution_error: Error context from a failed execution attempt (for re-diagnosis).
 
     Returns:
         A :class:`DiagnosisResult` grounded in retrieved docs.
     """
-    docs = retrieve_relevant_docs(user_input, k=k) if triage.requires_retrieval else []
-    logger.info("Diagnose(%s) -> %d docs retrieved", triage.problem_type.value, len(docs))
+    search_query = execution_error if execution_error else user_input
+    docs = retrieve_relevant_docs(search_query, k=k) if triage.requires_retrieval else []
+    logger.info(
+        "Diagnose(%s) -> %d docs retrieved (re-diagnosis: %s)",
+        triage.problem_type.value,
+        len(docs),
+        bool(execution_error),
+    )
 
     llm_result = _llm_diagnosis(user_input, triage, docs)
     if llm_result is not None:
         return llm_result
-    return _deterministic_diagnosis(triage, docs)
+    return _deterministic_diagnosis(triage, docs, execution_error)

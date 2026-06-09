@@ -10,6 +10,8 @@ relevant entities.
 Categories:
 - "python_missing_library": a Python import/module is missing
   (e.g. ModuleNotFoundError, ImportError, "No module named X").
+- "python_error": a Python syntax or runtime error
+  (e.g. SyntaxError, IndentationError, NameError, TypeError, IndexError).
 - "network_slow": the internet / Wi-Fi is slow.
 - "high_resource_usage": the computer is slow due to high CPU or RAM usage.
 - "unknown": none of the above / not enough information.

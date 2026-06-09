@@ -128,6 +128,7 @@ def _plan_high_resource_usage(triage: TriageResult) -> list[PlanStep]:
 
 _PLANNERS = {
     ProblemType.PYTHON_MISSING_LIBRARY: _plan_python_missing_library,
+    ProblemType.PYTHON_ERROR: lambda triage: [],
     ProblemType.NETWORK_SLOW: _plan_network_slow,
     ProblemType.HIGH_RESOURCE_USAGE: _plan_high_resource_usage,
 }

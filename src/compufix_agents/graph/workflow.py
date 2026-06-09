@@ -33,7 +33,7 @@ from compufix_agents.logging_config import get_logger
 from compufix_agents.schemas.diagnosis import DiagnosisResult
 from compufix_agents.schemas.execution import ExecutionResult
 from compufix_agents.schemas.plan import ActionPlan
-from compufix_agents.schemas.triage import TriageResult
+from compufix_agents.schemas.triage import ProblemType, TriageResult
 
 logger = get_logger(__name__)
 
@@ -70,10 +70,22 @@ def planner_node(state: WorkflowState) -> WorkflowState:
     return {"plan": result}
 
 
+def _get_python_error_final_response(triage: TriageResult | None, diagnosis: DiagnosisResult | None) -> str | None:
+    if triage and triage.problem_type == ProblemType.PYTHON_ERROR and diagnosis:
+        return (
+            f"No system actions required. Diagnosis:\n"
+            f"{diagnosis.diagnosis}\n\n"
+            f"Recommended Fix:\n"
+            f"{diagnosis.recommended_next_step}"
+        )
+    return None
+
+
 def executor_node(state: WorkflowState) -> WorkflowState:
     """LangGraph node: execute approved / safe steps."""
     result = execute_plan(state["plan"])
-    return {"execution": result, "final_response": result.final_response}
+    final_response = _get_python_error_final_response(state.get("triage"), state.get("diagnosis")) or result.final_response
+    return {"execution": result, "final_response": final_response}
 
 
 def build_workflow(with_interrupt: bool = True):
@@ -160,7 +172,8 @@ def run_execution(state: AgentState) -> AgentState:
         return state
     try:
         state.execution = execute_plan(state.plan)
-        state.final_response = state.execution.final_response
+        py_final = _get_python_error_final_response(state.triage, state.diagnosis)
+        state.final_response = py_final if py_final is not None else state.execution.final_response
     except Exception as exc:  # pragma: no cover - defensive
         logger.exception("Execution failed")
         state.errors.append(str(exc))

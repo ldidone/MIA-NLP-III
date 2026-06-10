@@ -37,6 +37,16 @@ _DETERMINISTIC_DIAGNOSIS: dict[ProblemType, dict[str, str]] = {
             "and verify the import afterwards."
         ),
     },
+    ProblemType.PYTHON_ERROR: {
+        "diagnosis": (
+            "A Python syntax or runtime error occurred (e.g. SyntaxError, IndentationError, "
+            "NameError, TypeError, IndexError). This is a code bug rather than a missing library."
+        ),
+        "next_step": (
+            "Review the specific code syntax, verify indentation spacing, check for variable typos, "
+            "verify data types are compatible, and ensure index accesses are within sequence bounds."
+        ),
+    },
     ProblemType.NETWORK_SLOW: {
         "diagnosis": (
             "The connection is slow, commonly because the device is on a slower "

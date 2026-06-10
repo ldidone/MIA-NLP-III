@@ -80,3 +80,25 @@ def test_triage_without_llm_uses_rules():
     result = triage("ModuleNotFoundError: No module named 'cv2'", use_llm=False)
     assert result.problem_type == ProblemType.PYTHON_MISSING_LIBRARY
     assert result.extracted_entities["package_name"] == "opencv-python"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        'if x = 10\n    print("Hello")',
+        'def my_function():\nprint("Missing indent")',
+        'message = "Welcome"\nprint(mesage)  # Typo in variable name',
+        'total = "Price: " + 50',
+        'items = ["apple", "banana"]\nprint(items[2])  # The maximum index available is 1',
+        "SyntaxError: invalid syntax",
+        "IndentationError: expected an indented block",
+        "NameError: name 'mesage' is not defined",
+        "TypeError: can only concatenate str (not 'int') to str",
+        "IndexError: list index out of range",
+    ],
+)
+def test_python_errors_triage(text):
+    result = rule_based_triage(text)
+    assert result.problem_type == ProblemType.PYTHON_ERROR
+    assert result.requires_retrieval is True
+    assert result.requires_system_tools is False

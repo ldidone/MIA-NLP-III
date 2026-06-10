@@ -12,6 +12,7 @@ class ProblemType(StrEnum):
     """Categories the triage agent can classify a problem into."""
 
     PYTHON_MISSING_LIBRARY = "python_missing_library"
+    PYTHON_ERROR = "python_error"
     NETWORK_SLOW = "network_slow"
     HIGH_RESOURCE_USAGE = "high_resource_usage"
     UNKNOWN = "unknown"

@@ -43,6 +43,32 @@ _PYTHON_TRIGGERS = (
     "pip install",
 )
 
+_PYTHON_ERROR_KEYWORDS = (
+    "syntaxerror",
+    "indentationerror",
+    "nameerror",
+    "typeerror",
+    "indexerror",
+    "syntax error",
+    "indentation error",
+    "name error",
+    "type error",
+    "index error",
+    "missing indent",
+    "typo in variable",
+    "maximum index available",
+    "invalid syntax",
+)
+
+_PYTHON_CODE_TRIGGERS = (
+    "def ",
+    "print(",
+    "if x =",
+    "items = ",
+    "total = ",
+    "import ",
+)
+
 _NETWORK_KEYWORDS = (
     "internet",
     "wifi",
@@ -123,6 +149,19 @@ def rule_based_triage(user_input: str) -> TriageResult:
             extracted_entities=entities,
             requires_retrieval=True,
             requires_system_tools=True,
+        )
+
+    # 1b. Python syntax/runtime errors.
+    has_python_error_trigger = any(kw in text for kw in _PYTHON_ERROR_KEYWORDS) or any(
+        kw in text for kw in _PYTHON_CODE_TRIGGERS
+    )
+    if has_python_error_trigger:
+        return TriageResult(
+            problem_type=ProblemType.PYTHON_ERROR,
+            confidence=0.9,
+            extracted_entities=entities,
+            requires_retrieval=True,
+            requires_system_tools=False,
         )
 
     # 2. Network vs. high resource usage (keyword scoring).

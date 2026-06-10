@@ -122,16 +122,19 @@ def _render_plan_and_approvals(plan) -> dict[int, bool]:
 
 
 def _render_execution(execution) -> None:
-    st.subheader("5. Execution results")
-    for r in execution.results:
-        icon = _STATUS_ICON.get(r.status, "•")
-        st.markdown(f"{icon} **Step {r.step}: `{r.tool}`** — {r.status.value}")
-        if r.output:
-            with st.expander(f"Output of step {r.step}"):
-                st.json(r.output)
-        if r.message:
-            st.caption(r.message)
-    st.subheader("6. Final answer")
+    if execution.results:
+        st.subheader("5. Execution results")
+        for r in execution.results:
+            icon = _STATUS_ICON.get(r.status, "•")
+            st.markdown(f"{icon} **Step {r.step}: `{r.tool}`** — {r.status.value}")
+            if r.output:
+                with st.expander(f"Output of step {r.step}"):
+                    st.json(r.output)
+            if r.message:
+                st.caption(r.message)
+        st.subheader("6. Final answer")
+    else:
+        st.subheader("4. Final answer")
     st.success(execution.final_response)
 
 
@@ -175,17 +178,21 @@ def main() -> None:
         if analysis.plan:
             approvals = _render_plan_and_approvals(analysis.plan)
 
-            st.subheader("4. Execute")
-            needs_approval = analysis.plan.requires_any_approval()
-            if needs_approval:
-                st.info(
-                    "Sensitive steps require your approval (checkboxes above). "
-                    "Unapproved sensitive steps will be skipped."
-                )
-            if st.button("▶️ Execute approved actions"):
-                apply_approvals(analysis.plan, approvals)
-                with st.spinner("Executing plan..."):
+            if not analysis.plan.plan:
+                if st.session_state.executed is None:
                     st.session_state.executed = run_execution(analysis)
+            else:
+                st.subheader("4. Execute")
+                needs_approval = analysis.plan.requires_any_approval()
+                if needs_approval:
+                    st.info(
+                        "Sensitive steps require your approval (checkboxes above). "
+                        "Unapproved sensitive steps will be skipped."
+                    )
+                if st.button("▶️ Execute approved actions"):
+                    apply_approvals(analysis.plan, approvals)
+                    with st.spinner("Executing plan..."):
+                        st.session_state.executed = run_execution(analysis)
 
     executed = st.session_state.executed
     if executed is not None and executed.execution is not None:

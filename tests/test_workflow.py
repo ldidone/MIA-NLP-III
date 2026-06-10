@@ -61,6 +61,15 @@ def test_run_full_resource_usage_no_approval_needed():
     assert by_tool["list_top_processes"].status == StepStatus.SUCCESS
 
 
+def test_run_full_python_error_custom_response():
+    state = run_full("if x = 10\n    print('Hello')")
+    assert state.triage.problem_type == ProblemType.PYTHON_ERROR
+    assert state.plan.plan == []
+    assert state.execution.results == []
+    assert "No system actions required. Diagnosis:" in state.final_response
+    assert "Recommended Fix:" in state.final_response
+
+
 def test_build_workflow_compiles():
     graph = build_workflow(with_interrupt=True)
     assert graph is not None

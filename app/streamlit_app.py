@@ -31,6 +31,7 @@ from compufix_agents.graph.workflow import (  # noqa: E402
     run_followup,
 )
 from compufix_agents.schemas.execution import StepStatus  # noqa: E402
+from compufix_agents.tools.runtime import set_runtime_preferences  # noqa: E402
 
 EXAMPLE_INPUTS = [
     "ModuleNotFoundError: No module named 'cv2'",
@@ -58,6 +59,66 @@ def _init_state() -> None:
     st.session_state.setdefault("followup_mode", False)
 
 
+def _security_preferences() -> None:
+    """Ask the user how sensitive actions should be performed, then apply them.
+
+    These choices are applied to the runtime preferences on every rerun, so they
+    take effect before any plan is executed.
+    """
+    st.sidebar.subheader("🔐 Security & execution")
+    st.sidebar.caption("Choose how CompuFix is allowed to act on your machine.")
+
+    pkg_labels = {
+        "Don't install — just tell me how (safest)": "off",
+        "Install into a virtual environment (.venv)": "venv",
+        "Install into the current interpreter": "current",
+    }
+    pkg_choice = st.sidebar.radio(
+        "Python packages",
+        list(pkg_labels),
+        index=0,
+        key="pref_pkg",
+    )
+    venv_path = ".venv"
+    if pkg_labels[pkg_choice] == "venv":
+        venv_path = st.sidebar.text_input(
+            "Virtual environment folder",
+            value=st.session_state.get("pref_venv_path", ".venv"),
+            key="pref_venv_path",
+            help="Created automatically if it doesn't exist (relative to the project root).",
+        )
+
+    proc_labels = {
+        "Simulated — never touch real processes (safest)": "simulated",
+        "Real — inspect/kill actual processes": "real",
+    }
+    proc_choice = st.sidebar.radio(
+        "Processes",
+        list(proc_labels),
+        index=0,
+        key="pref_proc",
+    )
+
+    net_labels = {
+        "Simulated switch (demo)": "simulated",
+        "Don't change my network (safest)": "off",
+    }
+    net_choice = st.sidebar.radio(
+        "Network",
+        list(net_labels),
+        index=0,
+        key="pref_net",
+    )
+
+    set_runtime_preferences(
+        package_install_mode=pkg_labels[pkg_choice],
+        venv_path=venv_path,
+        process_mode=proc_labels[proc_choice],
+        network_mode=net_labels[net_choice],
+    )
+    st.sidebar.divider()
+
+
 def _sidebar() -> None:
     st.sidebar.title("CompuFix Agents")
     st.sidebar.caption("Multi-agent computer troubleshooting (MVP)")
@@ -65,9 +126,8 @@ def _sidebar() -> None:
     settings = get_settings()
     mode = "LLM-enabled" if settings.llm_enabled else "Deterministic (no API key)"
     st.sidebar.info(f"Mode: **{mode}**")
-    st.sidebar.write(
-        f"Real process kill: **{'enabled' if settings.allow_real_process_kill else 'disabled'}**"
-    )
+
+    _security_preferences()
 
     if st.session_state.conversation_history:
         st.sidebar.subheader("Conversation history")

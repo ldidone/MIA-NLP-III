@@ -28,6 +28,23 @@ These are defined in `tools/registry.py::SENSITIVE_TOOLS`. The planner sets
 `requires_approval=True` for them, and the executor **skips** any sensitive step
 that is not explicitly approved (`StepStatus.SKIPPED_NOT_APPROVED`).
 
+## Runtime execution preferences (asked in the UI)
+
+Beyond per-step approval, the user chooses *how* sensitive actions are carried
+out. These choices live in `tools/runtime.py::RuntimePreferences` and are set
+from the Streamlit sidebar before any plan runs. The UI defaults to the safest
+option in each group.
+
+| Group         | Options                                                                                  |
+| ------------- | ---------------------------------------------------------------------------------------- |
+| Python packages | `off` (don't install; show the command), `venv` (install into a virtual environment, created if missing), `current` (install into the running interpreter) |
+| Processes     | `simulated` (never touch real processes; listing/kill are mocked), `real` (psutil listing; kill still dry-run + approval gated) |
+| Network       | `simulated` (in-memory mock switch), `off` (don't change the network)                     |
+
+The defaults of `RuntimePreferences` mirror the historical tool behavior
+(`current` / `real` / `simulated`) so non-UI callers and tests are unaffected,
+while the UI surfaces the secure choice first.
+
 Read-only diagnostics (`check_python_package`, `verify_python_import`,
 `get_current_network`, `list_available_networks`, `list_top_processes`) never
 require approval.

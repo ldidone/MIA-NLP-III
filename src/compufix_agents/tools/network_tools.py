@@ -9,6 +9,7 @@ from __future__ import annotations
 import copy
 
 from compufix_agents.logging_config import get_logger
+from compufix_agents.tools.runtime import get_runtime_preferences
 
 logger = get_logger(__name__)
 
@@ -70,6 +71,18 @@ def switch_network(ssid: str) -> dict:
         ``current_network``.
     """
     global _CURRENT_NETWORK
+
+    if get_runtime_preferences().network_mode == "off":
+        logger.info("switch_network(%s) skipped (network_mode=off)", ssid)
+        return {
+            "success": True,
+            "skipped": True,
+            "message": (
+                f"Network change skipped per your security preference. "
+                f"To switch manually, connect to '{ssid}' from your OS Wi-Fi settings."
+            ),
+            "current_network": copy.deepcopy(_CURRENT_NETWORK),
+        }
 
     target = next((n for n in _AVAILABLE_NETWORKS if n["ssid"] == ssid), None)
     if target is None:

@@ -14,8 +14,31 @@ import psutil
 
 from compufix_agents.config import get_settings
 from compufix_agents.logging_config import get_logger
+from compufix_agents.tools.runtime import get_runtime_preferences
 
 logger = get_logger(__name__)
+
+# Deterministic sample used when the user selects the "simulated" process mode
+# (so no real processes are inspected or affected).
+_SIMULATED_PROCESSES: list[dict] = [
+    {
+        "pid": 4242,
+        "name": "chrome",
+        "cpu_percent": 78.5,
+        "memory_percent": 12.3,
+        "protected": False,
+    },
+    {"pid": 5310, "name": "python", "cpu_percent": 45.1, "memory_percent": 8.7, "protected": False},
+    {"pid": 1180, "name": "Slack", "cpu_percent": 22.0, "memory_percent": 6.1, "protected": False},
+    {
+        "pid": 990,
+        "name": "WindowServer",
+        "cpu_percent": 14.2,
+        "memory_percent": 3.0,
+        "protected": True,
+    },
+    {"pid": 2050, "name": "node", "cpu_percent": 9.8, "memory_percent": 4.5, "protected": False},
+]
 
 # Process names that must never be terminated by this tool.
 PROTECTED_PROCESS_NAMES: frozenset[str] = frozenset(
@@ -58,10 +81,18 @@ def list_top_processes(limit: int = 5) -> dict:
     Args:
         limit: Maximum number of processes to return.
 
+    In the "simulated" process mode (a user security preference), this returns a
+    deterministic sample instead of inspecting the real system.
+
     Returns:
         A dict with a ``processes`` list, each item containing ``pid``,
         ``name``, ``cpu_percent``, ``memory_percent``, and ``protected``.
     """
+    if get_runtime_preferences().process_mode == "simulated":
+        sample = [dict(p) for p in _SIMULATED_PROCESSES[: max(0, limit)]]
+        logger.info("list_top_processes(limit=%d) -> %d processes (simulated)", limit, len(sample))
+        return {"processes": sample, "simulated": True}
+
     procs: list[psutil.Process] = list(psutil.process_iter(["pid", "name"]))
 
     # Prime cpu_percent; the first call returns 0.0, so we sample twice.
@@ -108,11 +139,26 @@ def kill_process(pid: int, dry_run: bool = True) -> dict:
         pid: Target process id.
         dry_run: If True (default), do not actually terminate the process.
 
+    In the "simulated" process mode (a user security preference), no real
+    process is ever inspected or terminated: the call is reported as a dry-run.
+
     Returns:
         A dict describing the outcome: ``pid``, ``name``, ``killed`` (bool),
         ``dry_run``, and ``message``.
     """
     settings = get_settings()
+    prefs = get_runtime_preferences()
+
+    if prefs.process_mode == "simulated":
+        logger.info("kill_process(%s) -> simulated, not killed", pid)
+        return {
+            "pid": pid,
+            "name": None,
+            "killed": False,
+            "dry_run": True,
+            "simulated": True,
+            "message": f"[simulated] Would terminate pid {pid} (no real process touched).",
+        }
 
     try:
         proc = psutil.Process(pid)

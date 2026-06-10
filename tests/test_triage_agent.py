@@ -102,4 +102,3 @@ def test_python_errors_triage(text):
     assert result.problem_type == ProblemType.PYTHON_ERROR
     assert result.requires_retrieval is True
     assert result.requires_system_tools is False
-

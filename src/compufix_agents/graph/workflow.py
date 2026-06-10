@@ -70,7 +70,9 @@ def planner_node(state: WorkflowState) -> WorkflowState:
     return {"plan": result}
 
 
-def _get_python_error_final_response(triage: TriageResult | None, diagnosis: DiagnosisResult | None) -> str | None:
+def _get_python_error_final_response(
+    triage: TriageResult | None, diagnosis: DiagnosisResult | None
+) -> str | None:
     if triage and triage.problem_type == ProblemType.PYTHON_ERROR and diagnosis:
         return (
             f"No system actions required. Diagnosis:\n"
@@ -84,7 +86,10 @@ def _get_python_error_final_response(triage: TriageResult | None, diagnosis: Dia
 def executor_node(state: WorkflowState) -> WorkflowState:
     """LangGraph node: execute approved / safe steps."""
     result = execute_plan(state["plan"])
-    final_response = _get_python_error_final_response(state.get("triage"), state.get("diagnosis")) or result.final_response
+    final_response = (
+        _get_python_error_final_response(state.get("triage"), state.get("diagnosis"))
+        or result.final_response
+    )
     return {"execution": result, "final_response": final_response}
 
 

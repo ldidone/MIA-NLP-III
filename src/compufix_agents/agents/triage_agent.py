@@ -152,9 +152,8 @@ def rule_based_triage(user_input: str) -> TriageResult:
         )
 
     # 1b. Python syntax/runtime errors.
-    has_python_error_trigger = (
-        any(kw in text for kw in _PYTHON_ERROR_KEYWORDS)
-        or any(kw in text for kw in _PYTHON_CODE_TRIGGERS)
+    has_python_error_trigger = any(kw in text for kw in _PYTHON_ERROR_KEYWORDS) or any(
+        kw in text for kw in _PYTHON_CODE_TRIGGERS
     )
     if has_python_error_trigger:
         return TriageResult(

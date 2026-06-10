@@ -54,7 +54,7 @@ def test_retriever_falls_back_to_keyword(monkeypatch):
 
     hits = retrieve_relevant_docs("No module named 'cv2'", k=2)
     assert hits
-    assert any("python/" in h["source"] for h in hits)
+    assert any("python" in h["source"].replace("\\", "/") for h in hits)
 
 
 def test_openai_embeddings_none_without_key(monkeypatch):

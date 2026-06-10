@@ -33,3 +33,7 @@ class DiagnosisResult(BaseModel):
     retrieved_docs: list[RetrievedDoc] = Field(
         default_factory=list, description="Raw documents used to build the diagnosis."
     )
+    is_rediagnosis: bool = Field(
+        default=False,
+        description="True when this diagnosis was produced after a failed execution attempt.",
+    )

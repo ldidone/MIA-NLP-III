@@ -271,7 +271,10 @@ def _llm_triage(user_input: str, conversation_context: str = "") -> TriageResult
         result = TriageResult(**data)
         logger.info("LLM triage -> %s (%.2f)", result.problem_type, result.confidence)
         # Mark for clarification if confidence is too low.
-        if result.confidence < _CLARIFICATION_THRESHOLD and result.problem_type != ProblemType.UNKNOWN:
+        if (
+            result.confidence < _CLARIFICATION_THRESHOLD
+            and result.problem_type != ProblemType.UNKNOWN
+        ):
             result.needs_clarification = True
             result.clarification_question = _build_clarification_question(result, user_input)
         return result

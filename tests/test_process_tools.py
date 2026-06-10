@@ -39,7 +39,7 @@ def test_protected_pids():
 
 
 def test_kill_protected_process_blocked():
-    result = kill_process(1, dry_run=False)
+    result = kill_process(os.getpid(), dry_run=False)
     assert result["killed"] is False
     assert "protected" in result["message"].lower()
 

@@ -97,16 +97,38 @@ Single source of truth used by both the planner and the executor:
 
 ## Controlled tools (`tools/`)
 
-| Tool                     | Module               | Side effects                         |
-| ------------------------ | -------------------- | ------------------------------------ |
-| `check_python_package`   | python_env_tools     | read-only                            |
-| `install_python_package` | python_env_tools     | `sys.executable -m pip install`      |
-| `verify_python_import`   | python_env_tools     | read-only (subprocess import)        |
-| `get_current_network`    | network_tools        | read-only (mocked)                   |
-| `list_available_networks`| network_tools        | read-only (mocked)                   |
-| `switch_network`         | network_tools        | mutates in-memory mock only          |
-| `list_top_processes`     | process_tools        | read-only (real, via psutil)         |
-| `kill_process`           | process_tools        | dry-run by default; gated + protected|
+| Tool                     | Module               | Side effects                                            |
+| ------------------------ | -------------------- | ------------------------------------------------------- |
+| `check_python_package`   | python_env_tools     | read-only                                               |
+| `install_python_package` | python_env_tools     | pip install into current interpreter / a venv / nothing (per runtime preference) |
+| `verify_python_import`   | python_env_tools     | read-only (subprocess import; targets the venv when selected) |
+| `get_current_network`    | network_tools        | read-only (mocked)                                      |
+| `list_available_networks`| network_tools        | read-only (mocked)                                      |
+| `switch_network`         | network_tools        | mutates in-memory mock only; skipped when network=off   |
+| `list_top_processes`     | process_tools        | real (psutil) or deterministic mock (per runtime preference) |
+| `kill_process`           | process_tools        | dry-run by default; always dry-run in simulated mode; gated + protected |
+
+The `install_python_package` tool delegates venv creation to a helper,
+`python_env_tools.ensure_virtualenv`, which runs `python -m venv <path>` only
+when the target environment does not already exist.
+
+## Runtime execution preferences (`tools/runtime.py`)
+
+Separate from environment configuration, `RuntimePreferences` captures the
+user's *interactive* choices about how sensitive tools behave. The Streamlit
+sidebar writes them (via `set_runtime_preferences`) before each run, and the
+tools above read them (via `get_runtime_preferences`):
+
+| Preference             | Values                          | Effect                                              |
+| ---------------------- | ------------------------------- | --------------------------------------------------- |
+| `package_install_mode` | `current` / `venv` / `off`      | Where (or whether) packages are installed.          |
+| `venv_path`            | path (default `.venv`)          | Virtual environment location for `venv` mode.       |
+| `process_mode`         | `real` / `simulated`            | Whether process listing/killing touches the real OS.|
+| `network_mode`         | `simulated` / `off`             | Whether the (mocked) network switch is applied.     |
+
+Defaults (`current` / `real` / `simulated`) mirror the historical tool behavior,
+so non-UI callers and tests are unaffected; the UI defaults to the safest option
+in each group.
 
 ## Data models (`schemas/`)
 
@@ -117,8 +139,12 @@ aggregate `AgentState` (`graph/state.py`).
 ## Configuration (`config.py`)
 
 Environment-driven `Settings`: `OPENAI_API_KEY`, `LLM_PROVIDER`,
-`VECTORSTORE_PATH`, `ALLOW_REAL_PROCESS_KILL`. `llm_enabled` is true only when an
-API key is present.
+`VECTORSTORE_PATH`, `ALLOW_REAL_PROCESS_KILL`, `EMBEDDING_BACKEND`,
+`LOCAL_EMBEDDING_MODEL`. `llm_enabled` is true only when an API key is present.
+
+This is distinct from the **runtime preferences** described above: `config.py`
+holds immutable, environment-sourced settings, while `tools/runtime.py` holds
+mutable, user-chosen execution preferences set from the UI.
 
 ## Module map
 
@@ -127,7 +153,7 @@ src/compufix_agents/
   agents/      triage, diagnostic, planner, executor
   graph/       state (AgentState), workflow (LangGraph + helpers)
   rag/         ingest, vectorstore, retriever
-  tools/       python_env_tools, network_tools, process_tools, registry
+  tools/       python_env_tools, network_tools, process_tools, registry, runtime
   schemas/     triage, diagnosis, plan, execution
   prompts/     triage, diagnostic, planner prompts
   config.py, logging_config.py

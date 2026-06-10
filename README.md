@@ -99,6 +99,24 @@ The UI lets you analyze a problem, review the diagnosis and proposed plan,
 approve sensitive steps individually, then execute and view results. Example
 inputs are available in the sidebar.
 
+### Security & execution preferences
+
+Beyond per-step approval, the sidebar asks **how** CompuFix is allowed to act on
+your machine. Each group defaults to the safest option:
+
+| Group           | Options                                                                                                           |
+| --------------- | --------------------------------------------------------------------------------------------------------------- |
+| Python packages | **Don't install** (just show the command) · **Install into a virtual environment** (created automatically if missing) · **Install into the current interpreter** |
+| Processes       | **Simulated** (never touch real processes) · **Real** (psutil listing; kills stay dry-run + approval gated)       |
+| Network         | **Simulated switch** (demo) · **Don't change my network**                                                         |
+
+These choices are stored as runtime preferences
+(`compufix_agents.tools.runtime.RuntimePreferences`) and applied before any plan
+runs. When you pick the virtual-environment option, CompuFix runs
+`python -m venv` for you if the folder doesn't exist and installs/verifies the
+package against that environment's interpreter. See
+[`docs/safety_policy.md`](docs/safety_policy.md) for details.
+
 ## Running tests
 
 ```bash
@@ -136,8 +154,9 @@ accuracy drops below 80%.
   cover the three target use cases but are not general-purpose.
 - The keyword retriever is a lexical fallback, not semantic search; quality
   improves with the Chroma + embeddings path.
-- Package installation runs against the **active interpreter**; results depend on
-  network access and PyPI availability.
+- Package installation targets whatever you choose in the sidebar (the current
+  interpreter, a dedicated virtual environment, or nothing at all); when it does
+  install, results depend on network access and PyPI availability.
 
 ## Future work
 

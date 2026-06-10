@@ -193,8 +193,7 @@ def save_solution_node(state: WorkflowState) -> WorkflowState:
         if built:
             logger.info("Vector store rebuilt with new solution.")
         state["final_response"] = (
-            f"{state.get('final_response', '')}\n\n"
-            f"✅ Solución guardada en la base de conocimiento: {path}"
+            f"{state.get('final_response', '')}\n\n✅ Solution saved to the knowledge base: {path}"
         )
     return {"solution_saved": True}
 
@@ -379,7 +378,7 @@ def _save_solution_to_kb(state: AgentState) -> None:
         built = build_vectorstore()
         if built:
             logger.info("Vector store rebuilt with new solution.")
-        state.final_response += "\n\n✅ Solución guardada en la base de conocimiento."
+        state.final_response += "\n\n✅ Solution saved to the knowledge base."
         state.solution_saved = True
 
 
@@ -447,7 +446,7 @@ def run_followup(follow_up: str, state: AgentState) -> AgentState:
     and re-runs triage -> diagnosis -> planner with full conversational context.
 
     Args:
-        follow_up: The user's follow-up message (e.g. "ya instalé eso pero ahora me da este error").
+        follow_up: The user's follow-up message (e.g. "I already installed that but now I get this error").
         state: The existing agent state from the previous turn.
 
     Returns:
@@ -489,7 +488,7 @@ def run_full(user_input: str, auto_approve: bool = False) -> AgentState:
 
     # Clarification loop
     while state.needs_clarification:
-        simulated_response = "No tengo más información."
+        simulated_response = "I have no more information."
         state = handle_clarification(simulated_response, state)
 
     # Execution loop with re-diagnosis support

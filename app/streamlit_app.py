@@ -36,8 +36,8 @@ from compufix_agents.tools.runtime import set_runtime_preferences  # noqa: E402
 EXAMPLE_INPUTS = [
     "ModuleNotFoundError: No module named 'cv2'",
     "ModuleNotFoundError: No module named 'sklearn'",
-    "Mi internet está muy lento",
-    "La computadora está lenta y consume mucha RAM",
+    "My internet is very slow",
+    "My computer is slow and using a lot of RAM",
 ]
 
 _STATUS_ICON = {
@@ -135,7 +135,7 @@ def _sidebar() -> None:
             role = "🧑" if turn.role == "user" else "🤖"
             st.sidebar.caption(f"{role} {turn.content[:120]}...")
 
-    if st.sidebar.button("🔄 Nueva conversación"):
+    if st.sidebar.button("🔄 New conversation"):
         for key in list(st.session_state.keys()):
             del st.session_state[key]
         st.rerun()
@@ -164,7 +164,7 @@ def _render_triage(triage) -> None:
 def _render_diagnosis(diagnosis) -> None:
     st.subheader("2. Diagnosis")
     if diagnosis.is_rediagnosis:
-        st.warning("🔄 Re-diagnóstico tras error de ejecución")
+        st.warning("🔄 Re-diagnosis after an execution error")
     st.write(diagnosis.diagnosis)
     if diagnosis.recommended_next_step:
         st.success(f"**Recommended next step:** {diagnosis.recommended_next_step}")
@@ -181,7 +181,7 @@ def _render_plan_and_approvals(plan) -> dict[int, bool]:
     st.subheader("3. Proposed action plan")
     if state := st.session_state.agent_state:
         if state.retry_count > 0:
-            st.info(f"🔄 Intento de re-diagnóstico #{state.retry_count}/{state.max_retries}")
+            st.info(f"🔄 Re-diagnosis attempt #{state.retry_count}/{state.max_retries}")
 
     approvals: dict[int, bool] = {}
     if not plan.plan:
@@ -223,7 +223,7 @@ def _render_execution(execution) -> None:
                 st.caption(r.message)
 
         if state and state.solution_saved:
-            st.success("📚 Solución guardada automáticamente en la base de conocimiento.")
+            st.success("📚 Solution automatically saved to the knowledge base.")
 
         st.subheader("6. Final answer")
         st.success(execution.final_response)
@@ -238,32 +238,32 @@ def _render_execution(execution) -> None:
 
 
 def _render_clarification() -> None:
-    st.subheader("💬 Necesito más información")
+    st.subheader("💬 I need more information")
     state = st.session_state.agent_state
     st.info(state.clarification_question)
 
     clarification_input = st.text_area(
-        "Tu respuesta",
+        "Your answer",
         key="clarification_input",
         height=100,
-        placeholder="Describe con más detalle qué está ocurriendo...",
+        placeholder="Describe in more detail what is happening...",
     )
 
     col1, col2 = st.columns([1, 5])
     with col1:
-        if st.button("📤 Enviar", key="send_clarification", type="primary"):
+        if st.button("📤 Send", key="send_clarification", type="primary"):
             if clarification_input.strip():
                 _process_clarification(clarification_input)
                 st.rerun()
             else:
-                st.warning("Por favor escribe una respuesta.")
+                st.warning("Please type an answer.")
 
     with col2:
-        if st.button("⏭️ Omitir", key="skip_clarification"):
-            _process_clarification("No tengo más información para agregar.")
+        if st.button("⏭️ Skip", key="skip_clarification"):
+            _process_clarification("I have no more information to add.")
             st.rerun()
 
-    st.caption(f"Intento {state.clarification_count + 1} de 2")
+    st.caption(f"Attempt {state.clarification_count + 1} of 2")
 
 
 def _process_clarification(response: str) -> None:
@@ -367,8 +367,8 @@ def main() -> None:
                             # Check for re-diagnosis
                             if state.plan is None and state.execution_error:
                                 st.info(
-                                    f"🔄 Re-diagnosticando tras error "
-                                    f"(intento {state.retry_count}/{state.max_retries})..."
+                                    f"🔄 Re-diagnosing after an error "
+                                    f"(attempt {state.retry_count}/{state.max_retries})..."
                                 )
                                 state = run_analysis(state.user_input, state)
                                 st.session_state.agent_state = state
@@ -379,29 +379,29 @@ def main() -> None:
 
                 with col2:
                     if state.retry_count > 0:
-                        st.caption(f"Re-diagnóstico #{state.retry_count}")
+                        st.caption(f"Re-diagnosis #{state.retry_count}")
 
     executed = st.session_state.executed
     if executed is not None:
         _render_execution(executed)
 
         st.markdown("---")
-        st.subheader("💬 Seguimiento")
+        st.subheader("💬 Follow-up")
         st.caption(
-            "Si el problema se resolvió parcialmente o tienes un nuevo síntoma, "
-            "escríbelo aquí para continuar la conversación."
+            "If the problem was only partially solved or you have a new symptom, "
+            "write it here to continue the conversation."
         )
 
         follow_up = st.text_area(
-            "Tu seguimiento",
+            "Your follow-up",
             key="followup_input",
             height=80,
-            placeholder="Ej: ya instalé la librería pero ahora me da este error...",
+            placeholder="E.g.: I already installed the library but now I get this error...",
         )
 
         col_fu1, col_fu2, col_fu3 = st.columns([1, 1, 4])
         with col_fu1:
-            if st.button("📤 Enviar seguimiento", key="send_followup", type="primary"):
+            if st.button("📤 Send follow-up", key="send_followup", type="primary"):
                 if follow_up.strip():
                     state = st.session_state.agent_state
                     state = run_followup(follow_up, state)
@@ -420,10 +420,10 @@ def main() -> None:
                     st.session_state.followup_mode = True
                     st.rerun()
                 else:
-                    st.warning("Escribe un mensaje de seguimiento.")
+                    st.warning("Type a follow-up message.")
 
         with col_fu2:
-            if st.button("🔄 Nuevo problema"):
+            if st.button("🔄 New problem"):
                 for key in list(st.session_state.keys()):
                     del st.session_state[key]
                 st.rerun()

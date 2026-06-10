@@ -111,10 +111,10 @@ def _deterministic_diagnosis(
 
     if is_rediagnosis:
         diagnosis_text = (
-            f"[Re-diagnóstico tras error de ejecución]\n\n"
+            f"[Re-diagnosis after an execution error]\n\n"
             f"{diagnosis_text}\n\n"
-            f"El paso anterior falló con: {execution_error}\n"
-            "Revisando información adicional para encontrar una solución alternativa."
+            f"The previous step failed with: {execution_error}\n"
+            "Reviewing additional information to find an alternative solution."
         )
 
     return DiagnosisResult(

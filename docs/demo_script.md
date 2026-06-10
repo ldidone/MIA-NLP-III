@@ -17,8 +17,16 @@ python -m compufix_agents.rag.ingest
 streamlit run app/streamlit_app.py
 ```
 
-In the sidebar you should see **Mode: Deterministic (no API key)** and
-**Real process kill: disabled**. The sidebar also has clickable example inputs.
+In the sidebar you should see **Mode: Deterministic (no API key)** and a
+**🔐 Security & execution** panel that lets you choose how CompuFix may act:
+
+- **Python packages** — *Don't install* (default), *Install into a virtual
+  environment*, or *Install into the current interpreter*.
+- **Processes** — *Simulated* (default) or *Real*.
+- **Network** — *Simulated switch* (default) or *Don't change my network*.
+
+The sidebar also has clickable example inputs. Each option defaults to the
+safest choice, so nothing touches your machine until you opt in.
 
 ---
 
@@ -45,6 +53,12 @@ Click **🔍 Analyze problem**. Expect:
 **Talking point:** check the approval box for step 2 to demonstrate
 human-in-the-loop, or leave it unchecked to show the install being **skipped**.
 
+**Security preference demo:** in the sidebar, switch **Python packages** to
+*Install into a virtual environment*, approve step 2, and execute — CompuFix
+creates `.venv` if needed, installs `opencv-python` there, and verifies the
+import against that environment. Switch it back to *Don't install* to show the
+tool returning the manual `pip install` command instead of touching anything.
+
 Click **▶️ Execute approved actions** and review the per-step results and the
 final answer.
 
@@ -55,7 +69,7 @@ final answer.
 **Input:**
 
 ```text
-Mi internet está muy lento
+My internet is very slow
 ```
 
 Click **🔍 Analyze problem**. Expect:
@@ -69,7 +83,9 @@ Click **🔍 Analyze problem**. Expect:
    - Step 3 `switch_network(Home_5G)` — **requires approval**.
 
 **Talking point:** approve step 3 and execute — the switch is **simulated**
-(`"Switched to 'Home_5G' (simulated)"`); no real OS setting changes.
+(`"Switched to 'Home_5G' (simulated)"`); no real OS setting changes. Set
+**Network** to *Don't change my network* in the sidebar to show the switch being
+skipped entirely with a message telling the user how to do it manually.
 
 ---
 
@@ -78,7 +94,7 @@ Click **🔍 Analyze problem**. Expect:
 **Input:**
 
 ```text
-La computadora está lenta y consume mucha RAM
+My computer is slow and using a lot of RAM
 ```
 
 Click **🔍 Analyze problem**. Expect:
@@ -89,12 +105,15 @@ Click **🔍 Analyze problem**. Expect:
 3. **Action plan**:
    - Step 1 `list_top_processes(limit=5)` — no approval.
 
-Click **▶️ Execute approved actions** to show the real top processes (via
-`psutil`). Note that `kill_process` is **not** in the plan unless a specific PID
+Click **▶️ Execute approved actions** to show the top processes. With
+**Processes** set to *Real* (sidebar) these come from `psutil`; with the default
+*Simulated* setting a deterministic mock list is shown and no real process is
+inspected. Note that `kill_process` is **not** in the plan unless a specific PID
 is suspected, and it would default to **dry-run** with approval required.
 
-**Talking point:** mention `ALLOW_REAL_PROCESS_KILL=false` and the protected
-process list (`launchd`, `systemd`, `WindowServer`, ...).
+**Talking point:** mention the layered safety — the *Simulated* process mode, the
+`ALLOW_REAL_PROCESS_KILL=false` config flag, and the protected process list
+(`launchd`, `systemd`, `WindowServer`, ...).
 
 ---
 

@@ -483,26 +483,26 @@ def _build_clarification_question(triage: TriageResult, text: str) -> str:
     """Generate a clarification question when confidence is low."""
     if triage.problem_type == ProblemType.UNKNOWN:
         return (
-            "No pude identificar el problema con claridad. "
-            "¿Podrías darme más detalles? Por ejemplo, ¿qué mensaje de error "
-            "ves exactamente, o qué estabas haciendo cuando ocurrió?"
+            "I couldn't clearly identify the problem. "
+            "Could you give me more details? For example, what exact error "
+            "message do you see, or what were you doing when it happened?"
         )
     if triage.problem_type == ProblemType.PYTHON_MISSING_LIBRARY:
         return (
-            "Parece que falta una librería de Python, pero no estoy seguro. "
-            "¿Podrías copiar el mensaje de error completo?"
+            "It looks like a Python library is missing, but I'm not sure. "
+            "Could you paste the full error message?"
         )
     if triage.problem_type == ProblemType.NETWORK_SLOW:
         return (
-            "Parece que tienes un problema de red, pero tengo poca información. "
-            "¿Podrías describir qué pruebas de conexión has hecho?"
+            "It looks like you have a network problem, but I have little information. "
+            "Could you describe what connection tests you have run?"
         )
     if triage.problem_type == ProblemType.HIGH_RESOURCE_USAGE:
         return (
-            "Parece que tu computadora está lenta, pero necesito más detalles. "
-            "¿Qué programas tienes abiertos y desde cuándo empezó el problema?"
+            "It looks like your computer is slow, but I need more details. "
+            "What programs do you have open and when did the problem start?"
         )
-    return "¿Podrías proporcionar más detalles sobre el problema?"
+    return "Could you provide more details about the problem?"
 
 
 def rule_based_triage(user_input: str, conversation_context: str = "") -> TriageResult:

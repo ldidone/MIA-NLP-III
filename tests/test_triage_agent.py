@@ -28,11 +28,44 @@ def test_python_missing_library(text, expected_module, expected_package):
 
 
 @pytest.mark.parametrize(
+    ("text", "expected_module", "expected_package"),
+    [
+        # Natural English phrasings.
+        ("I don't have torch installed on my computer", "torch", "torch"),
+        ("torch is not installed", "torch", "torch"),
+        ("how do I install numpy?", "numpy", "numpy"),
+        ("I can't import sklearn", "sklearn", "scikit-learn"),
+        ("the requests library is missing", "requests", "requests"),
+        # Natural Spanish phrasings.
+        ("No tengo instalado torch en mi computadora", "torch", "torch"),
+        ("Me falta la librería pandas", "pandas", "pandas"),
+        ("necesito instalar opencv para mi proyecto", "cv2", "opencv-python"),
+        ("no puedo importar yaml en mi script de python", "yaml", "PyYAML"),
+        # Pip package names are canonicalized to the import name.
+        ("cómo instalo scikit-learn?", "sklearn", "scikit-learn"),
+        ("pip install opencv-python no me funciona", "cv2", "opencv-python"),
+    ],
+)
+def test_python_missing_library_natural_language(text, expected_module, expected_package):
+    result = rule_based_triage(text)
+    assert result.problem_type == ProblemType.PYTHON_MISSING_LIBRARY
+    assert result.extracted_entities["missing_module"] == expected_module
+    assert result.extracted_entities["package_name"] == expected_package
+    assert result.confidence >= 0.8
+
+
+@pytest.mark.parametrize(
     "text",
     [
         "Mi internet está muy lento",
         "My wifi is really slow",
         "the network connection is slow today",
+        # Natural phrasings (must NOT be mistaken for a missing library).
+        "I don't have internet",
+        "Web pages take forever to load",
+        "las páginas web no cargan",
+        "los videos se quedan buffering",
+        "mi conexión anda muy mal",
     ],
 )
 def test_network_slow(text):
@@ -46,6 +79,10 @@ def test_network_slow(text):
         "La computadora está muy lenta y el ventilador hace ruido",
         "La computadora está lenta y consume mucha RAM",
         "high CPU usage is slowing everything down",
+        # Natural phrasings.
+        "mi laptop se congela todo el tiempo",
+        "my computer is frozen and very hot",
+        "la pc no responde y hace mucho ruido",
     ],
 )
 def test_high_resource_usage(text):
@@ -57,6 +94,8 @@ def test_unknown_for_empty_or_irrelevant():
     assert rule_based_triage("").problem_type == ProblemType.UNKNOWN
     assert triage("   ").problem_type == ProblemType.UNKNOWN
     assert rule_based_triage("hello there").problem_type == ProblemType.UNKNOWN
+    # Install intent without a plausible Python module must not match.
+    assert rule_based_triage("necesito instalar una impresora").problem_type == ProblemType.UNKNOWN
 
 
 @pytest.mark.parametrize(

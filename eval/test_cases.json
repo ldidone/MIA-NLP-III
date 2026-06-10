@@ -43,5 +43,45 @@
     "expected_problem_type": "high_resource_usage",
     "expected_tool": "list_top_processes",
     "requires_approval": false
+  },
+  {
+    "input": "I don't have torch installed on my computer",
+    "expected_problem_type": "python_missing_library",
+    "expected_package": "torch",
+    "expected_tool": "install_python_package",
+    "requires_approval": true
+  },
+  {
+    "input": "No tengo instalado torch en mi computadora",
+    "expected_problem_type": "python_missing_library",
+    "expected_package": "torch",
+    "expected_tool": "install_python_package",
+    "requires_approval": true
+  },
+  {
+    "input": "necesito instalar opencv para mi proyecto",
+    "expected_problem_type": "python_missing_library",
+    "expected_package": "opencv-python",
+    "expected_tool": "install_python_package",
+    "requires_approval": true
+  },
+  {
+    "input": "Me falta la librería pandas",
+    "expected_problem_type": "python_missing_library",
+    "expected_package": "pandas",
+    "expected_tool": "install_python_package",
+    "requires_approval": true
+  },
+  {
+    "input": "Web pages take forever to load",
+    "expected_problem_type": "network_slow",
+    "expected_tool": "get_current_network",
+    "requires_approval": false
+  },
+  {
+    "input": "my computer is frozen and very hot",
+    "expected_problem_type": "high_resource_usage",
+    "expected_tool": "list_top_processes",
+    "requires_approval": false
   }
 ]
